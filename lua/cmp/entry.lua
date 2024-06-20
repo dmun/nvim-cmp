@@ -206,6 +206,22 @@ entry.get_view = function(self, suggest_offset, entries_buf)
   local item = self:get_vim_item(suggest_offset)
   return self.cache:ensure('get_view:' .. tostring(entries_buf), function()
     local view = {}
+
+    local max_width = 40
+
+    local abbr = item.abbr or ''
+    local menu = item.menu or ''
+
+    local whitespace = max_width - vim.fn.strdisplaywidth(abbr) - vim.fn.strdisplaywidth(menu)
+
+    if whitespace < 0 then
+      local trimmed_width = vim.fn.strdisplaywidth(menu) + whitespace
+      item.menu = menu:sub(0, trimmed_width - 1) .. '…'
+      whitespace = 0
+    end
+
+    item.abbr = abbr .. string.rep(' ', whitespace + 2)
+
     -- The result of vim.fn.strdisplaywidth depends on which buffer it was
     -- called in because it reads the values of the option 'tabstop' when
     -- rendering <Tab> characters.

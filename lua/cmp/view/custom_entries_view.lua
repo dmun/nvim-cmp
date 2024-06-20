@@ -77,7 +77,7 @@ custom_entries_view.new = function()
               hl_mode = 'combine',
               ephemeral = true,
             })
-            o = o + v[field].bytes + (self.column_width[field] - v[field].width) + 1
+            o = o + v[field].bytes + 1
           end
 
           for _, m in ipairs(e.matches or {}) do
@@ -132,9 +132,10 @@ custom_entries_view.open = function(self, offset, entries)
     local view = e:get_view(offset, entries_buf)
     if view.dup == 1 or not dedup[e.completion_item.label] then
       dedup[e.completion_item.label] = true
-      self.column_width.abbr = math.max(self.column_width.abbr, view.abbr.width)
+      self.column_width.abbr = view.abbr.width
       self.column_width.kind = math.max(self.column_width.kind, view.kind.width)
-      self.column_width.menu = math.max(self.column_width.menu, view.menu.width)
+      self.column_width.menu = view.menu.width
+      -- vim.notify(vim.inspect(self.column_width))
       table.insert(self.entries, e)
       table.insert(lines, ' ')
       if preselect_index == 0 and e.completion_item.preselect then
@@ -274,9 +275,23 @@ custom_entries_view.draw = function(self)
       local view = e:get_view(self.offset, entries_buf)
       local text = {}
       table.insert(text, string.rep(' ', config.get().window.completion.side_padding))
+
       for _, field in ipairs(fields) do
-        table.insert(text, view[field].text)
-        table.insert(text, string.rep(' ', 1 + self.column_width[field] - view[field].width))
+
+        if field == 'abbr' then
+          table.insert(text, view.abbr.text)
+          table.insert(text, string.rep(' ', 1))
+        end
+
+        if field == 'menu' then
+          table.insert(text, view.menu.text)
+          table.insert(text, string.rep(' ', 1))
+        end
+
+        if field == 'kind' then
+          table.insert(text, view[field].text)
+          table.insert(text, string.rep(' ', 1))
+        end
       end
       table.insert(text, string.rep(' ', config.get().window.completion.side_padding))
       table.insert(texts, table.concat(text, ''))
