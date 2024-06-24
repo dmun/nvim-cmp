@@ -129,6 +129,7 @@ cmp.ItemField = {
 ---@field public col_offset? integer|nil
 ---@field public side_padding? integer|nil
 ---@field public scrollbar? boolean|true
+---@field public max_width? integer|nil
 
 ---@class cmp.DocumentationWindowOptions: cmp.WindowOptions
 ---@field public max_height? integer|nil

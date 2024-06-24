@@ -65,6 +65,7 @@ custom_entries_view.new = function()
         if e then
           local v = e:get_view(self.offset, buf)
           local o = config.get().window.completion.side_padding
+          local max_width = config.get().window.completion.max_width
           local a = 0
           for _, field in ipairs(fields) do
             if field == types.cmp.ItemField.Abbr then
@@ -72,12 +73,12 @@ custom_entries_view.new = function()
             end
             vim.api.nvim_buf_set_extmark(buf, custom_entries_view.ns, i, o, {
               end_line = i,
-              end_col = o + v[field].bytes,
+              end_col = field == 'menu' and max_width + 10 or o + v[field].bytes,
               hl_group = v[field].hl_group,
               hl_mode = 'combine',
               ephemeral = true,
             })
-            o = o + v[field].bytes + (self.column_width[field] - v[field].width) + 1
+            o = o + v[field].bytes + (field == 'abbr' and 0 or self.column_width[field] - v[field].width) + 1
           end
 
           for _, m in ipairs(e.matches or {}) do
@@ -151,11 +152,11 @@ custom_entries_view.open = function(self, offset, entries)
   end
   vim.api.nvim_buf_set_option(entries_buf, 'modified', false)
 
-  local width = 0
+  local width = config.get().window.completion.max_width
   width = width + 1
-  width = width + self.column_width.abbr + (self.column_width.kind > 0 and 1 or 0)
   width = width + self.column_width.kind + (self.column_width.menu > 0 and 1 or 0)
-  width = width + self.column_width.menu + 1
+  width = width + (self.column_width.kind > 0 and 1 or 0)
+  width = width + 1
 
   local height = vim.api.nvim_get_option_value('pumheight', {})
   height = height ~= 0 and height or #self.entries
@@ -275,8 +276,35 @@ custom_entries_view.draw = function(self)
       local text = {}
       table.insert(text, string.rep(' ', config.get().window.completion.side_padding))
       for _, field in ipairs(fields) do
+        local max_width = config.get().window.completion.max_width
+        local trim = max_width < view.abbr.width + view.menu.width
+        local whitespace = 0
+        local ellipses = '…'
+
+        if trim then
+          if view.abbr.width <= max_width / 2 then
+            view.menu.text = view.menu.text:sub(0, max_width - view.abbr.width - 1) .. ellipses
+          elseif view.menu.width <= max_width / 2 then
+            view.abbr.text = view.abbr.text:sub(0, max_width - view.menu.width - 1) .. ellipses
+          else
+            view.abbr.text = view.abbr.text:sub(0, max_width / 2 - 1) .. ellipses
+            view.menu.text = view.menu.text:sub(0, max_width / 2 - 1) .. ellipses
+          end
+        else
+          whitespace = max_width - view.abbr.width - view.menu.width
+        end
+
+        view.abbr.width = vim.fn.strdisplaywidth(view.abbr.text)
+        view.menu.width = vim.fn.strdisplaywidth(view.menu.text)
+        view.abbr.bytes = #view.abbr.text
+        view.menu.bytes = #view.menu.text
+
         table.insert(text, view[field].text)
-        table.insert(text, string.rep(' ', 1 + self.column_width[field] - view[field].width))
+        if field == 'abbr' then
+          table.insert(text, string.rep(' ', 1 + whitespace))
+        else
+          table.insert(text, string.rep(' ', 1 + self.column_width[field] - view[field].width))
+        end
       end
       table.insert(text, string.rep(' ', config.get().window.completion.side_padding))
       table.insert(texts, table.concat(text, ''))

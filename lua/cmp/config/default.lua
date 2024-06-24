@@ -113,6 +113,7 @@ return function()
         col_offset = 0,
         side_padding = 1,
         scrollbar = true,
+        max_width = 40,
       },
       documentation = {
         max_height = math.floor(WIDE_HEIGHT * (WIDE_HEIGHT / vim.o.lines)),
