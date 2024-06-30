@@ -51,6 +51,9 @@ return function()
       format = function(_, vim_item)
         return vim_item
       end,
+      highlight = function(_, highlights)
+        return highlights
+      end
     },
 
     matching = {

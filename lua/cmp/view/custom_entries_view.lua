@@ -59,85 +59,48 @@ custom_entries_view.new = function()
         return
       end
 
-      local query = vim.treesitter.query.get(vim.bo.filetype, 'highlights')
-      if query == nil then
-        query = vim.treesitter.query.get('lua', 'highlights')
-      end
-
+      local max_width = config.get().window.completion.max_width
       local fields = config.get().formatting.fields
       for i = top, bot do
         local e = self.entries[i + 1]
         if e then
           local v = e:get_view(self.offset, buf)
           local o = config.get().window.completion.side_padding
-          local max_width = config.get().window.completion.max_width
           local a = 0
+          local whitespace = max_width - v.abbr.width - v.menu.width
+          local highlights = config.get().formatting.highlight(e, {
+            abbr = 'CmpItemAbbr',
+            menu = 'CmpItemMenu',
+          })
           for _, field in ipairs(fields) do
-            if field == types.cmp.ItemField.Abbr then
-              a = o
-              local success, parser = pcall(vim.treesitter.get_string_parser, v.abbr.text, vim.bo.filetype)
-              if success then
-                local tree = parser:parse(true)[1]
-                local root = tree:root()
-                local offset = 0
-                local shift = 0
-                local in_param = false
-                for id, node in query:iter_captures(root, v.abbr.text, 0, -1) do
-                  local name = '@' .. query.captures[id]
-                  local priority = 800
-                  if name == '@keyword.import' then
-                    goto continue
-                  end
-                  if name == '@string' then
-                    priority = 1000
-                  end
-                  if name == '@comment' then
-                    shift = 2
-                  end
-                  local next = true
-                  if name ~= '@spell' and shift == 2 then
-                    next = false
-                  end
-                  if name == '@spell' and next then
-                    next = false
-                    goto continue
-                  end
-                  if name == '@punctuation.bracket' then
-                    -- in_param = true
-                  end
-                  name = name .. '.' .. vim.bo.filetype
-                  local hl = vim.api.nvim_get_hl_id_by_name(name)
-                  -- local hl = query:get_hl_from_capture(node)
-                  local range = { node:range() }
-                  local _, nscol, _, necol = range[1], range[2], range[3], range[4]
-                  pcall(vim.api.nvim_buf_set_extmark, buf, custom_entries_view.ns, i, nscol + o - offset - shift, {
-                    end_col = necol + o - offset - shift,
-                    priority = priority,
-                    hl_group = in_param and 'CmpItemArgs' or hl,
-                    hl_eol = false,
-                    ephemeral = true,
-                  })
-                  ::continue::
-                end
-              else
-                vim.api.nvim_buf_set_extmark(buf, custom_entries_view.ns, i, o, {
+            local hl = highlights[field]
+            if type(hl) == 'table' then
+              for _, extmark in ipairs(hl) do
+                vim.api.nvim_buf_set_extmark(buf, custom_entries_view.ns, i, o + extmark.col, {
                   end_line = i,
-                  end_col = o + v[field].bytes,
-                  hl_group = v[field].hl_group,
-                  hl_mode = 'combine',
+                  end_col = o + extmark.end_col,
+                  priority = extmark.priority or 800,
+                  hl_group = extmark.hl_group,
+                  hl_eol = false,
                   ephemeral = true,
                 })
               end
             else
               vim.api.nvim_buf_set_extmark(buf, custom_entries_view.ns, i, o, {
                 end_line = i,
-                end_col = field == 'menu' and max_width + 10 or o + v[field].bytes,
-                hl_group = v[field].hl_group,
+                end_col = o + v[field].bytes,
+                hl_group = hl or 'CmpItemAbbr',
                 hl_mode = 'combine',
                 ephemeral = true,
               })
             end
-            o = o + v[field].bytes + (field == 'abbr' and 0 or self.column_width[field] - v[field].width) + 1
+
+            if field == types.cmp.ItemField.Abbr then
+              a = o
+              o = o + v[field].bytes + whitespace + 1
+            else
+              o = o + v[field].bytes + (self.column_width[field] - v[field].width) + 1
+            end
           end
 
           for _, m in ipairs(e.matches or {}) do
@@ -213,7 +176,7 @@ custom_entries_view.open = function(self, offset, entries)
 
   local width = config.get().window.completion.max_width
   width = width + 1
-  width = width + self.column_width.kind + (self.column_width.menu > 0 and 1 or 1)
+  -- width = width + self.column_width.kind + (self.column_width.menu > 0 and 1 or 1)
   width = width + (self.column_width.kind > 0 and 1 or 0)
   width = width + 1
 
@@ -338,25 +301,10 @@ custom_entries_view.draw = function(self)
         local max_width = config.get().window.completion.max_width
         local trim = max_width < view.abbr.width + view.menu.width
         local whitespace = 0
-        local ellipses = '…'
 
-        if trim then
-          if view.abbr.width <= max_width / 2 then
-            view.menu.text = view.menu.text:sub(0, max_width - view.abbr.width - 1) .. ellipses
-          elseif view.menu.width <= max_width / 2 then
-            view.abbr.text = view.abbr.text:sub(0, max_width - view.menu.width - 1) .. ellipses
-          else
-            view.abbr.text = view.abbr.text:sub(0, max_width / 2 - 1) .. ellipses
-            view.menu.text = view.menu.text:sub(0, max_width / 2 - 1) .. ellipses
-          end
-        else
+        if not trim then
           whitespace = max_width - view.abbr.width - view.menu.width
         end
-
-        view.abbr.width = vim.fn.strdisplaywidth(view.abbr.text)
-        view.menu.width = vim.fn.strdisplaywidth(view.menu.text)
-        view.abbr.bytes = #view.abbr.text
-        view.menu.bytes = #view.menu.text
 
         table.insert(text, view[field].text)
         if field == 'abbr' then

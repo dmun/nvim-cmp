@@ -155,6 +155,7 @@ cmp.ItemField = {
 ---@field public fields cmp.ItemField[]
 ---@field public expandable_indicator boolean
 ---@field public format fun(entry: cmp.Entry, vim_item: vim.CompletedItem): vim.CompletedItem
+---@field public highlight fun(entry: cmp.Entry, highlights: table): table|string
 
 ---@class cmp.SnippetConfig
 ---@field public expand fun(args: cmp.SnippetExpansionParams)

@@ -226,6 +226,26 @@ entry.get_view = function(self, suggest_offset, entries_buf)
       view.menu.width = vim.fn.strdisplaywidth(view.menu.text)
       view.menu.hl_group = item.menu_hl_group or 'CmpItemMenu'
       view.dup = item.dup
+
+      local max_width = config.get().window.completion.max_width
+      local trim = max_width < view.abbr.width + view.menu.width
+      local ellipses = '…'
+
+      if trim then
+        if view.abbr.width <= max_width / 2 then
+          view.menu.text = view.menu.text:sub(0, max_width - view.abbr.width - 1) .. ellipses
+        elseif view.menu.width <= max_width / 2 then
+          view.abbr.text = view.abbr.text:sub(0, max_width - view.menu.width - 1) .. ellipses
+        else
+          view.abbr.text = view.abbr.text:sub(0, max_width / 2 - 1) .. ellipses
+          view.menu.text = view.menu.text:sub(0, max_width / 2 - 1) .. ellipses
+        end
+      end
+
+      view.abbr.width = vim.fn.strdisplaywidth(view.abbr.text)
+      view.menu.width = vim.fn.strdisplaywidth(view.menu.text)
+      view.abbr.bytes = #view.abbr.text
+      view.menu.bytes = #view.menu.text
     end)
     return view
   end)
@@ -298,6 +318,16 @@ entry.get_vim_item = function(self, suggest_offset)
     vim_item.abbr = str.oneline(vim_item.abbr or '')
     vim_item.kind = str.oneline(vim_item.kind or '')
     vim_item.menu = str.oneline(vim_item.menu or '')
+    local custom_fields = {}
+    for _, field in ipairs(config.get().formatting.fields) do
+      if not vim.tbl_contains({ 'abbr', 'kind', 'menu' }, field) then
+        table.insert(custom_fields, field)
+      end
+    end
+
+    for _, field in ipairs(custom_fields) do
+      vim_item[field] = str.oneline(vim_item[field] or '')
+    end
     vim_item.equal = 1
     vim_item.empty = 1
 
